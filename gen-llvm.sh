@@ -4,8 +4,8 @@ export CORE_ROOT=/home/acanino/Projects/dotnet/runtime/artifacts/bin/mono/Linux.
 export CORE_LIBRARIES=/home/acanino/Projects/dotnet/runtime/artifacts/bin/runtime/net7.0-Linux-Debug-x64
 export MONO_VERBOSE_METHOD="RenderVector;RenderVector128;RenderVector256"
 
-if [[ -e out/coreclr ]]; then
-  mkdir -p out/coreclr
+if [[ ! -e out/llvm ]]; then
+  mkdir -p out/llvm
 fi
 
 rm *.txt
