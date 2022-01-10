@@ -2,7 +2,7 @@
 
 export COMPlus_JitTieredCompilation=0
 export COMPlus_JitDumpTier0=1
-export COMPlus_JitDisasm="RenderVector RenderVector128 RenderVector256"
+export COMPlus_JitDisasm="NoVectorDotProd Vector128DotProd Vector256DotProd"
 export COMPlus_JitDiffableDsasm=1
 
 if [[ -e out/coreclr ]]; then
