@@ -5,8 +5,8 @@ export CORE_LIBRARIES=/home/acanino/Projects/dotnet/runtime/artifacts/bin/runtim
 #export MONO_VERBOSE_METHOD="NoVectorDotProd;Vector128DotProd;Vector256DotProduct;Vector512DotProduct"
 export MONO_VERBOSE_METHOD="Vector512DotProd"
 
-if [[ -e out/coreclr ]]; then
-  mkdir -p out/coreclr
+if [[ ! -e out/llvm ]]; then
+  mkdir -p out/llvm
 fi
 
 rm *.txt
