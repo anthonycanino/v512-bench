@@ -92,11 +92,7 @@ namespace issues
           vresult = Avx512.Add(Avx512.Multiply(vleft, vright), vresult);
         }
 
-        for (int i = 0 ; i < Vector512<float>.Count; i++)
-        {
-          result += vresult.GetElement(i);
-        }
-
+        result = Avx512.ReduceAdd(vresult);
       }
 
       return result;
