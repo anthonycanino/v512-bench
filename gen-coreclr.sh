@@ -13,6 +13,6 @@ rm *.txt
 
 rm -f out/coreclr/*
 
-/home/acanino/Projects/dotnet/runtime/artifacts/bin/coreclr/Linux.x64.Debug/corerun bin/Release/net7.0/linux-x64/publish/v512-bench.dll > coreclr.dasm
+/home/acanino/Projects/dotnet/runtime/artifacts/bin/coreclr/Linux.x64.Debug/corerun bin/Release/net7.0/linux-x64/publish/v512-bench.dll diag coreclr > coreclr.dasm
 
 mv *.txt coreclr.dasm out/coreclr

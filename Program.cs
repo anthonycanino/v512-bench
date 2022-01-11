@@ -16,8 +16,18 @@ namespace issues
   {
     public static void Main(string[] args)
     {
-      //Mandel.Run();
-      Micro.Run();
+      string mode = args[0];
+      string type = args[1];
+
+      if (mode == "diag")
+      {
+        Micro.RunDiag(type);
+      }
+      else
+      {
+        Micro.RunBench(type);
+      }
+
     }
   }
 }

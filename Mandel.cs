@@ -230,6 +230,14 @@ namespace issues
           */
 
           var watch = new System.Diagnostics.Stopwatch();
+          if (Stopwatch.IsHighResolution)
+          {
+            Console.WriteLine("Using high resolution timer...");
+          }
+          else
+          {
+            Console.WriteLine("Using millisecond resolution timer...");
+          }
 
           // For benchmarking
 

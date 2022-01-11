@@ -7,4 +7,4 @@ if [[ -e out/coreclr ]]; then
   mkdir -p out/coreclr
 fi
 
-/home/acanino/Projects/dotnet/runtime/artifacts/bin/coreclr/Linux.x64.Debug/corerun bin/Release/net7.0/linux-x64/publish/v512-bench.dll > out/coreclr/results.txt
+/home/acanino/Projects/dotnet/runtime/artifacts/bin/coreclr/Linux.x64.Debug/corerun bin/Release/net7.0/linux-x64/publish/v512-bench.dll run coreclr > out/coreclr/results.txt
