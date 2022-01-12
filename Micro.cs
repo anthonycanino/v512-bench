@@ -10,15 +10,22 @@ using System.Runtime.Intrinsics.X86;
 using System.IO;
 using System.Diagnostics;
 
+using System.Collections.Generic;
+using System.Linq;
+
 namespace issues
 {
   class Micro
   {
     // 512x512
-    public static int Size = 262144;
+    public static int[] Sizes = new int[] 
+    {
+      (512 * 512), (1024 * 1024), (2048 * 2048), (4096 * 4096), (8192 * 8192)
+    };
     public static int Iterations = 100;
 
-    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
+    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
     public unsafe static float NoVectorDotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
     {
       float result = 0;
@@ -29,7 +36,8 @@ namespace issues
       return result;
     }
 
-    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
+    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
     public unsafe static float Vector128DotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
     {
       float result = 0;
@@ -46,14 +54,14 @@ namespace issues
         vresult = Sse3.HorizontalAdd(vresult, vresult);
         vresult = Sse3.HorizontalAdd(vresult, vresult);
 
-
         result = vresult.ToScalar();
       }
 
       return result;
     }
 
-    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
+    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
     public unsafe static float Vector256DotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
     {
       float result = 0;
@@ -78,7 +86,8 @@ namespace issues
       return result;
     }
 
-    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
+    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
     public unsafe static float Vector512DotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
     {
       float result = 0;
@@ -100,12 +109,12 @@ namespace issues
 
     public static void RunDiag(string mode)
     {
-      var lefta = new float[Size];
-      var righta = new float[Size];
-      for (int i = 0; i < Size; i++) 
+      var lefta = new float[1024];
+      var righta = new float[1024];
+      for (int i = 0; i < 1024; i++) 
       {
-        lefta[i] = i;
-        righta[i] = i;
+        lefta[i] = 2;
+        righta[i] = 2;
       }
 
       ReadOnlySpan<float> left = new ReadOnlySpan<float>(lefta);
@@ -122,95 +131,130 @@ namespace issues
       }
       else if (mode == "llvm")
       {
-        Vector512DotProd(left, right);
+        Console.WriteLine("Vector512DotProd: " + Vector512DotProd(left, right));
       }
     }
 
-    public static void RunBench(string mode)
+    static double standardDeviation(IEnumerable<double> sequence)
     {
-      var lefta = new float[Size];
-      var righta = new float[Size];
-      for (int i = 0; i < Size; i++) 
+      double result = 0;
+
+      if (sequence.Any())
       {
-        lefta[i] = i;
-        righta[i] = i;
+        double average = sequence.Average();
+        double sum = sequence.Sum(d => Math.Pow(d - average, 2));
+        result = Math.Sqrt((sum) / (sequence.Count() - 1));
+      }
+      return result;
+    }
+
+    public static void RecordResult(double[] data, int size, StreamWriter writer, string tag)
+    {
+      double mean = data.Average();
+      double stddev = standardDeviation(data);
+      writer.WriteLine($"{tag},{size},{mean} ms,{stddev} ms");
+    }
+
+    public static void RunBenchSize(string mode, int size, StreamWriter writer)
+    {
+      if (size % Vector128<float>.Count != 0 || size % Vector256<float>.Count != 0 || size % Vector512<float>.Count != 0)
+      {
+        Console.WriteLine($"{size} not evenly divisable by 128,256,and 512 vectors, skipping...");
+        return;
+      }
+       
+
+      var lefta = new float[size];
+      var righta = new float[size];
+      for (int i = 0; i < size; i++) 
+      {
+        lefta[i] = 2;
+        righta[i] = 2;
       }
 
       ReadOnlySpan<float> left = new ReadOnlySpan<float>(lefta);
       ReadOnlySpan<float> right = new ReadOnlySpan<float>(righta);
 
       var watch = new System.Diagnostics.Stopwatch();
-      if (Stopwatch.IsHighResolution)
-      {
-        Console.WriteLine("Using high resolution timer...");
-      }
-      else
-      {
-        Console.WriteLine("Using millisecond resolution timer...");
-      }
-  
+
+      var data = new double[Iterations];
+        
       //
       // NoVectorDotProd
       // 
-      watch.Restart();
 
       for (int i = 0; i < Iterations; i++)
       {
-        NoVectorDotProd(left, right);
+        watch.Restart();
+        var res = NoVectorDotProd(left, right);
+        watch.Stop();
+        data[i] = watch.ElapsedMilliseconds;
+        if (i + 1 == Iterations)
+          Console.WriteLine("NoVector :: size: " + size + " result: " + res);
       }
-
-      watch.Stop();
-      double ns = 1000000000.0 * (double)watch.ElapsedTicks / Stopwatch.Frequency;
-      Console.WriteLine($"NoVectorDotProduce: {ns / (double) Iterations} ns");
+      RecordResult(data, size, writer, "NoVector");
 
       //
       // Vector128DotProd
       // 
-      watch.Restart();
 
       for (int i = 0; i < Iterations; i++)
       {
-        Vector128DotProd(left, right);
+        watch.Restart();
+        var res = Vector128DotProd(left, right);
+        watch.Stop();
+        data[i] = watch.ElapsedMilliseconds;
+        if (i + 1 == Iterations)
+          Console.WriteLine("Vector128 :: size: " + size + " result: " + res);
       }
-
-      watch.Stop();
-      ns = 1000000000.0 * (double)watch.ElapsedTicks / Stopwatch.Frequency;
-      Console.WriteLine($"Vector128DotProd: {ns / (double) Iterations} ns");
-
-
+      RecordResult(data, size, writer, "Vector128");
 
       //
       // Vector256DotProd
       // 
       if (mode == "coreclr")
       {
-        watch.Restart();
 
         for (int i = 0; i < Iterations; i++)
         {
-          Vector256DotProd(left, right);
+          watch.Restart();
+          var res = Vector256DotProd(left, right);
+          watch.Stop();
+          data[i] = watch.ElapsedMilliseconds;
+          if (i + 1 == Iterations)
+           Console.WriteLine("Vector256 :: size: " + size + " result: " + res);
         }
-
-        watch.Stop();
-        ns = 1000000000.0 * (double)watch.ElapsedTicks / Stopwatch.Frequency;
-        Console.WriteLine($"Vector256DotProd: {ns / (double) Iterations} ns");
+        RecordResult(data, size, writer, "Vector256");
       }
 
       if (mode == "llvm")
       {
-        watch.Restart();
-
         for (int i = 0; i < Iterations; i++)
         {
-          Vector512DotProd(left, right);
+          watch.Restart();
+          var res = Vector512DotProd(left, right);
+          watch.Stop();
+          data[i] = watch.ElapsedMilliseconds;
+          if (i + 1 == Iterations)
+            Console.WriteLine("Vector512 :: size: " + size + " result: " + res);
         }
+        RecordResult(data, size, writer, "Vector512");
 
-        watch.Stop();
-        ns = 1000000000.0 * (double)watch.ElapsedTicks / Stopwatch.Frequency;
-        Console.WriteLine($"Vector512DotProd: {ns / (double) Iterations} ns");
+      }
+    }
+
+    public static void RunBench(string mode)
+    {
+      StreamWriter writer = new StreamWriter("results.csv");
+      writer.WriteLine("name,size,mean,stddev");
+
+      foreach (int size in Sizes)
+      {
+        RunBenchSize(mode, size, writer);
       }
 
-
+      writer.Close();
     }
+
   }
 }

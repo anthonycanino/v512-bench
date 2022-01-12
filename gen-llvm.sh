@@ -3,7 +3,7 @@
 export CORE_ROOT=/home/acanino/Projects/dotnet/runtime/artifacts/bin/mono/Linux.x64.Debug/
 export CORE_LIBRARIES=/home/acanino/Projects/dotnet/runtime/artifacts/bin/runtime/net7.0-Linux-Debug-x64
 #export MONO_VERBOSE_METHOD="NoVectorDotProd;Vector128DotProd;Vector256DotProduct;Vector512DotProduct"
-export MONO_VERBOSE_METHOD="Vector512DotProd"
+export MONO_VERBOSE_METHOD="Vector128DotProd;Vector512DotProd"
 
 if [[ ! -e out/llvm ]]; then
   mkdir -p out/llvm
