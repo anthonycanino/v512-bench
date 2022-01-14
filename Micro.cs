@@ -21,9 +21,9 @@ namespace issues
     public static int[] Sizes = new int[] 
     {
       //(512 * 512), (1024 * 1024), (2048 * 2048), (4096 * 4096), (8192 * 8192)
-      128, 256, 512, 1024, 2048, 4096
+      128, 256, 512, 1024, 2048, 4096, 8192, 16384
     };
-    public static int Iterations = 1000;
+    public static int Iterations = 100;
 
     public static double ElapsedMicroSeconds(Stopwatch watch)
     {
@@ -31,9 +31,8 @@ namespace issues
 	return (double) 1000000 * ((double) ticks  / (double) Stopwatch.Frequency);
     }
 
-    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
-    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
-    public unsafe static float NoVectorDotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
+    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    public unsafe static float NoVectorDotProd(float[] left, float[] right)
     {
       float result = 0;
       for (int i = 0; i < left.Length; i++)
@@ -43,9 +42,8 @@ namespace issues
       return result;
     }
 
-    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
-    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
-    public unsafe static float Vector128DotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
+    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    public unsafe static float Vector128DotProd(float[] left, float[] right)
     {
       float result = 0;
       fixed (float *pleft = left, pright = right)
@@ -67,9 +65,8 @@ namespace issues
       return result;
     }
 
-    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
-    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
-    public unsafe static float Vector256DotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
+    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    public unsafe static float Vector256DotProd(float[] left, float[] right)
     {
       float result = 0;
       fixed (float *pleft = left, pright = right)
@@ -93,9 +90,8 @@ namespace issues
       return result;
     }
 
-    //[MethodImplAttribute(MethodImplOptions.NoInlining)]
-    [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
-    public unsafe static float Vector512DotProd(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
+    [MethodImplAttribute(MethodImplOptions.NoInlining)]
+    public unsafe static float Vector512DotProd(float[] left, float[] right)
     {
       float result = 0;
       fixed (float *pleft = left, pright = right)
@@ -110,22 +106,19 @@ namespace issues
 
         result = Avx512.ReduceAdd(vresult);
       }
-
+      
       return result;
     }
 
     public static void RunDiag(string mode)
     {
-      var lefta = new float[1024];
-      var righta = new float[1024];
+      var left = new float[1024];
+      var right = new float[1024];
       for (int i = 0; i < 1024; i++) 
       {
-        lefta[i] = 2;
-        righta[i] = 2;
+        left[i] = 2;
+        right[i] = 2;
       }
-
-      ReadOnlySpan<float> left = new ReadOnlySpan<float>(lefta);
-      ReadOnlySpan<float> right = new ReadOnlySpan<float>(righta);
 
       Console.WriteLine("NoVectorDotProd: " + NoVectorDotProd(left, right));
 
@@ -162,7 +155,7 @@ namespace issues
       writer.WriteLine($"{tag},{size},{mean} us,{stddev} us");
     }
 
-    public static void RunBenchSize(string mode, int size, StreamWriter writer)
+    public static void RunBenchSize(string mode, int size, StreamWriter writer, int iterations)
     {
       if (size % Vector128<float>.Count != 0 || size % Vector256<float>.Count != 0 || size % Vector512<float>.Count != 0)
       {
@@ -171,32 +164,29 @@ namespace issues
       }
        
 
-      var lefta = new float[size];
-      var righta = new float[size];
+      var left = new float[size];
+      var right = new float[size];
       for (int i = 0; i < size; i++) 
       {
-        lefta[i] = 2;
-        righta[i] = 2;
+        left[i] = 2;
+        right[i] = 2;
       }
-
-      ReadOnlySpan<float> left = new ReadOnlySpan<float>(lefta);
-      ReadOnlySpan<float> right = new ReadOnlySpan<float>(righta);
 
       var watch = new System.Diagnostics.Stopwatch();
 
-      var data = new double[Iterations];
+      var data = new double[iterations];
         
       //
       // NoVectorDotProd
       // 
 
-      for (int i = 0; i < Iterations; i++)
+      for (int i = 0; i < iterations; i++)
       {
         watch.Restart();
         var res = NoVectorDotProd(left, right);
         watch.Stop();
         data[i] = ElapsedMicroSeconds(watch);
-        if (i + 1 == Iterations)
+        if (i + 1 == iterations)
           Console.WriteLine("NoVector :: size: " + size + " result: " + res);
       }
       RecordResult(data, size, writer, "NoVector");
@@ -205,13 +195,13 @@ namespace issues
       // Vector128DotProd
       // 
 
-      for (int i = 0; i < Iterations; i++)
+      for (int i = 0; i < iterations; i++)
       {
         watch.Restart();
         var res = Vector128DotProd(left, right);
         watch.Stop();
         data[i] = ElapsedMicroSeconds(watch);
-        if (i + 1 == Iterations)
+        if (i + 1 == iterations)
           Console.WriteLine("Vector128 :: size: " + size + " result: " + res);
       }
       RecordResult(data, size, writer, "Vector128");
@@ -222,13 +212,13 @@ namespace issues
       if (mode == "coreclr")
       {
 
-        for (int i = 0; i < Iterations; i++)
+        for (int i = 0; i < iterations; i++)
         {
           watch.Restart();
           var res = Vector256DotProd(left, right);
           watch.Stop();
           data[i] = ElapsedMicroSeconds(watch);
-          if (i + 1 == Iterations)
+          if (i + 1 == iterations)
            Console.WriteLine("Vector256 :: size: " + size + " result: " + res);
         }
         RecordResult(data, size, writer, "Vector256");
@@ -236,13 +226,13 @@ namespace issues
 
       if (mode == "llvm")
       {
-        for (int i = 0; i < Iterations; i++)
+        for (int i = 0; i < iterations; i++)
         {
           watch.Restart();
           var res = Vector512DotProd(left, right);
           watch.Stop();
           data[i] = ElapsedMicroSeconds(watch);
-          if (i + 1 == Iterations)
+          if (i + 1 == iterations)
             Console.WriteLine("Vector512 :: size: " + size + " result: " + res);
         }
         RecordResult(data, size, writer, "Vector512");
@@ -268,13 +258,19 @@ namespace issues
             Console.WriteLine("  Timer is accurate within {0} nanoseconds",
                 nanosecPerTick);
 
+      StreamWriter writer = new StreamWriter("pre.csv");
+      foreach (int size in Sizes)
+      {
+        RunBenchSize(mode, size, writer, 1);
+      }
+      writer.Close();
 
-      StreamWriter writer = new StreamWriter("cold.csv");
+      writer = new StreamWriter("cold.csv");
       writer.WriteLine("name,size,mean,stddev");
 
       foreach (int size in Sizes)
       {
-        RunBenchSize(mode, size, writer);
+        RunBenchSize(mode, size, writer, Iterations);
       }
 
       writer.Close();
@@ -284,7 +280,7 @@ namespace issues
 
       foreach (int size in Sizes)
       {
-        RunBenchSize(mode, size, writer);
+        RunBenchSize(mode, size, writer, Iterations);
       }
 
       writer.Close();
