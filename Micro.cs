@@ -20,9 +20,16 @@ namespace issues
     // 512x512
     public static int[] Sizes = new int[] 
     {
-      (512 * 512), (1024 * 1024), (2048 * 2048), (4096 * 4096), (8192 * 8192)
+      //(512 * 512), (1024 * 1024), (2048 * 2048), (4096 * 4096), (8192 * 8192)
+      128, 256, 512, 1024, 2048, 4096
     };
-    public static int Iterations = 100;
+    public static int Iterations = 1000;
+
+    public static double ElapsedMicroSeconds(Stopwatch watch)
+    {
+        double ticks = watch.ElapsedTicks;
+	return (double) 1000000 * ((double) ticks  / (double) Stopwatch.Frequency);
+    }
 
     //[MethodImplAttribute(MethodImplOptions.NoInlining)]
     [MethodImplAttribute(MethodImplOptions.AggressiveInlining)]
@@ -152,7 +159,7 @@ namespace issues
     {
       double mean = data.Average();
       double stddev = standardDeviation(data);
-      writer.WriteLine($"{tag},{size},{mean} ms,{stddev} ms");
+      writer.WriteLine($"{tag},{size},{mean} us,{stddev} us");
     }
 
     public static void RunBenchSize(string mode, int size, StreamWriter writer)
@@ -188,7 +195,7 @@ namespace issues
         watch.Restart();
         var res = NoVectorDotProd(left, right);
         watch.Stop();
-        data[i] = watch.ElapsedMilliseconds;
+        data[i] = ElapsedMicroSeconds(watch);
         if (i + 1 == Iterations)
           Console.WriteLine("NoVector :: size: " + size + " result: " + res);
       }
@@ -203,7 +210,7 @@ namespace issues
         watch.Restart();
         var res = Vector128DotProd(left, right);
         watch.Stop();
-        data[i] = watch.ElapsedMilliseconds;
+        data[i] = ElapsedMicroSeconds(watch);
         if (i + 1 == Iterations)
           Console.WriteLine("Vector128 :: size: " + size + " result: " + res);
       }
@@ -220,7 +227,7 @@ namespace issues
           watch.Restart();
           var res = Vector256DotProd(left, right);
           watch.Stop();
-          data[i] = watch.ElapsedMilliseconds;
+          data[i] = ElapsedMicroSeconds(watch);
           if (i + 1 == Iterations)
            Console.WriteLine("Vector256 :: size: " + size + " result: " + res);
         }
@@ -234,7 +241,7 @@ namespace issues
           watch.Restart();
           var res = Vector512DotProd(left, right);
           watch.Stop();
-          data[i] = watch.ElapsedMilliseconds;
+          data[i] = ElapsedMicroSeconds(watch);
           if (i + 1 == Iterations)
             Console.WriteLine("Vector512 :: size: " + size + " result: " + res);
         }
@@ -245,7 +252,24 @@ namespace issues
 
     public static void RunBench(string mode)
     {
-      StreamWriter writer = new StreamWriter("results.csv");
+	if (Stopwatch.IsHighResolution)
+            {
+                Console.WriteLine("Operations timed using the system's high-resolution performance counter.");
+            }
+            else
+            {
+                Console.WriteLine("Operations timed using the DateTime class.");
+            }
+
+            long frequency = Stopwatch.Frequency;
+            Console.WriteLine("  Timer frequency in ticks per second = {0}",
+                frequency);
+            long nanosecPerTick = (1000L*1000L*1000L) / frequency;
+            Console.WriteLine("  Timer is accurate within {0} nanoseconds",
+                nanosecPerTick);
+
+
+      StreamWriter writer = new StreamWriter("cold.csv");
       writer.WriteLine("name,size,mean,stddev");
 
       foreach (int size in Sizes)
@@ -254,6 +278,17 @@ namespace issues
       }
 
       writer.Close();
+
+      writer = new StreamWriter("results.csv");
+      writer.WriteLine("name,size,mean,stddev");
+
+      foreach (int size in Sizes)
+      {
+        RunBenchSize(mode, size, writer);
+      }
+
+      writer.Close();
+
     }
 
   }
