@@ -5,7 +5,12 @@
 
 #include <immintrin.h>
 
+#include "mkl.h"
+
 int sizes[] = { 128, 256, 512, 1024, 2048, 4096, 8192, 16384 };
+
+#define NDISCARD 10
+#define SAMPLES 10000
 
 void record_result(const std::string& name, int size, double* data, int iters, FILE *f) {
   double mean = 0.0;
@@ -76,55 +81,77 @@ void run_bench(int size, int iters, FILE *f) {
   }
 
   float res = 0;
-  double *data = (double*) malloc(sizeof(double) * (iters-1));
+  double *data = (double*) malloc(sizeof(double) * (iters-NDISCARD));
 
   for (int i = 0; i < iters; i++) {
-    auto begin = std::chrono::high_resolution_clock::now();
-    res = run_no_vector_reduce(left, right, size);
-    auto end = std::chrono::high_resolution_clock::now();
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			res = run_no_vector_reduce(left, right, size);
+    auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-    if (i > 0)
-      data[i-1] = (double) elapsed.count();
+    if (i >= NDISCARD) {
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
+		}
     if (i + 1 == iters)
       printf("no_vector_reduce: %f\n", res);
   }
-  record_result("NoVector", size, data, iters, f);
+  record_result("NoVector", size, data, iters-NDISCARD, f);
 
   for (int i = 0; i < iters; i++) {
-    auto begin = std::chrono::high_resolution_clock::now();
-    res = run_vector_128_reduce(left, right, size);
-    auto end = std::chrono::high_resolution_clock::now();
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			res = run_vector_128_reduce(left, right, size);
+    auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-    if (i > 0)
-      data[i-1] = (double) elapsed.count();
+    if (i >= NDISCARD)
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
     if (i + 1 == iters)
       printf("vector_128_reduce: %f\n", res);
   }
-  record_result("Vector128", size, data, iters, f);
+  record_result("Vector128", size, data, iters-NDISCARD, f);
 
   for (int i = 0; i < iters; i++) {
-    auto begin = std::chrono::high_resolution_clock::now();
-    res = run_vector_256_reduce(left, right, size);
-    auto end = std::chrono::high_resolution_clock::now();
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			res = run_vector_256_reduce(left, right, size);
+    auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-    if (i > 0)
-      data[i-1] = (double) elapsed.count();
+    if (i >= NDISCARD)
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
     if (i + 1 == iters)
       printf("vector_256_reduce: %f\n", res);
   }
-  record_result("Vector256", size, data, iters, f);
+  record_result("Vector256", size, data, iters-NDISCARD, f);
 
   for (int i = 0; i < iters; i++) {
-    auto begin = std::chrono::high_resolution_clock::now();
-    res = run_vector_512_reduce(left, right, size);
-    auto end = std::chrono::high_resolution_clock::now();
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			res = run_vector_512_reduce(left, right, size);
+    auto end = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-    if (i > 0)
-      data[i-1] = (double) elapsed.count();
+    if (i >= NDISCARD)
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
     if (i + 1 == iters)
       printf("vector_512_reduce: %f\n", res);
   }
-  record_result("Vector512", size, data, iters, f);
+  record_result("Vector512", size, data, iters-NDISCARD, f);
+
+  for (int i = 0; i < iters; i++) {
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			res = cblas_sdot(size, left, 1, right, 1);
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    if (i >= NDISCARD)
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
+    if (i + 1 == iters)
+      printf("cblas_sdot: %f\n", res);
+  }
+  record_result("MKL_sdot", size, data, iters-NDISCARD, f);
+
+  free(data);
+  free(left);
+  free(right);
 }
 
 
@@ -134,7 +161,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   
-  int iters = strtod(argv[1], NULL);
+  int iters = strtod(argv[1], NULL) + NDISCARD;
 
   // sanity check
   for (int i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++) {
@@ -150,7 +177,7 @@ int main(int argc, char **argv) {
     perror("fopen");
     return 1;
   }
-  fprintf(f, "name,size,mean (us)\n");
+  fprintf(f, "name,size,mean (ns)\n");
 
   for (int i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++) {
     run_bench(sizes[i], iters, f);
