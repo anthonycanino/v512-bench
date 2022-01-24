@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <chrono>
+#include <cmath>
 #include <string>
 
 #include <immintrin.h>
@@ -12,13 +13,35 @@ int sizes[] = { 128, 256, 512, 1024, 2048, 4096, 8192, 16384 };
 #define NDISCARD 10
 #define SAMPLES 20000
 
+double stddev(double *num, int size) {
+	double sum = 0.0;
+	double mean = 0.0;
+	double sd = 0.0;
+
+	for (int i = 0; i < size; i++) {
+		mean += num[i];
+	}
+	mean /= (double) size;
+
+	for (int i = 0; i < size; i++) {
+		sd += pow(num[i] - mean, 2);
+	}
+
+	sd = sqrt(sd / (double) size);
+	return sd;
+}
+
+
 void record_result(const std::string& name, int size, double* data, int iters, FILE *f) {
   double mean = 0.0;
   for (int i = 0; i < iters; i++) {
     mean += data[i];
   }
   mean /= iters;
-  fprintf(f, "%s,%d,%lf\n", name.c_str(), size, mean);
+
+	double dev = stddev(data, iters);
+
+  fprintf(f, "%s,%d,%lf,%lf\n", name.c_str(), size, mean, dev);
 }
 
 float run_no_vector_reduce(float *l, float *r, int size) {
@@ -177,7 +200,7 @@ int main(int argc, char **argv) {
     perror("fopen");
     return 1;
   }
-  fprintf(f, "name,size,mean (us)\n");
+  fprintf(f, "name,size,mean (us),stddev\n");
 
   for (int i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++) {
     run_bench(sizes[i], iters, f);
