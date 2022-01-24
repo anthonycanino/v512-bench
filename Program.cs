@@ -18,6 +18,7 @@ namespace issues
     {
       string mode = args[0];
       string type = args[1];
+      int iters = Int32.Parse(args[2]);
 
       if (mode == "diag")
       {
@@ -25,7 +26,7 @@ namespace issues
       }
       else
       {
-        Micro.RunBench(type);
+        Micro.RunBench(type, iters);
       }
 
     }

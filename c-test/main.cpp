@@ -10,7 +10,7 @@
 int sizes[] = { 128, 256, 512, 1024, 2048, 4096, 8192, 16384 };
 
 #define NDISCARD 10
-#define SAMPLES 10000
+#define SAMPLES 20000
 
 void record_result(const std::string& name, int size, double* data, int iters, FILE *f) {
   double mean = 0.0;
@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
     perror("fopen");
     return 1;
   }
-  fprintf(f, "name,size,mean (ns)\n");
+  fprintf(f, "name,size,mean (us)\n");
 
   for (int i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++) {
     run_bench(sizes[i], iters, f);

@@ -23,12 +23,14 @@ namespace issues
       //(512 * 512), (1024 * 1024), (2048 * 2048), (4096 * 4096), (8192 * 8192)
       128, 256, 512, 1024, 2048, 4096, 8192, 16384
     };
-    public static int Iterations = 51;
+
+		public static int Discard = 10;
+		public static int Samples = 20000;
 
     public static double ElapsedMicroSeconds(Stopwatch watch)
     {
       double ticks = watch.ElapsedTicks;
-			return (double) 1000000 * ((double) ticks  / (double) Stopwatch.Frequency);
+			return (double) (1000L * 1000L) * ((double) ticks  / (double) Stopwatch.Frequency);
     }
 
 		/*
@@ -153,17 +155,10 @@ namespace issues
 
     public static void RecordResult(double[] data, int size, StreamWriter writer, string tag)
     {
-			Console.WriteLine("Sanity for " + size);
-			for (int i = 0; i < data.Length; i++)
-			{
-				Console.Write(data[i] + "," );
-			}
-			Console.WriteLine();
-
       double mean = data.Average();
       double stddev = standardDeviation(data);
 			double error = stddev / Math.Sqrt((double)data.Length);
-      writer.WriteLine($"{tag},{size},{mean} us,{stddev} us,{error} us");
+      writer.WriteLine($"{tag},{size},{mean},{stddev},{error}");
     }
 
     public static void RunBenchSize(string mode, int size, StreamWriter writer, int iterations)
@@ -184,7 +179,7 @@ namespace issues
       }
 
 			var watch = new System.Diagnostics.Stopwatch();
-			var data = new double[iterations-1];
+			var data = new double[iterations-Discard];
 
 			unsafe
 			{
@@ -198,10 +193,12 @@ namespace issues
 					for (int i = 0; i < iterations; i++)
 					{
 						watch.Restart();
-						var res = NoVectorDotProd(pleft, pright, size);
+						double res = 0.0;
+						for (int j = 0; j < Samples; j++)
+							res = NoVectorDotProd(pleft, pright, size);
 						watch.Stop();
-						if (i > 0)
-							data[i-1] = ElapsedMicroSeconds(watch);
+						if (i >= Discard)
+							data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 						if (i + 1 == iterations)
 							Console.WriteLine("NoVector :: size: " + size + " result: " + res);
 					}
@@ -214,10 +211,12 @@ namespace issues
 					for (int i = 0; i < iterations; i++)
 					{
 						watch.Restart();
-						var res = Vector128DotProd(pleft, pright, size);
+						double res = 0.0;
+						for (int j = 0; j < Samples; j++)
+							res = Vector128DotProd(pleft, pright, size);
 						watch.Stop();
-						if (i > 0)
-							data[i-1] = ElapsedMicroSeconds(watch);
+						if (i >= Discard)
+							data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 						if (i + 1 == iterations)
 							Console.WriteLine("Vector128 :: size: " + size + " result: " + res);
 					}
@@ -232,14 +231,20 @@ namespace issues
 						for (int i = 0; i < iterations; i++)
 						{
 							watch.Restart();
-							var res = Vector256DotProd(pleft, pright, size);
+							double res = 0.0;
+							for (int j = 0; j < Samples; j++)
+								res = Vector256DotProd(pleft, pright, size);
 							watch.Stop();
-							if (i > 0)
-								data[i-1] = ElapsedMicroSeconds(watch);
+							if (i >= Discard)
+								data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 							if (i + 1 == iterations)
 							 Console.WriteLine("Vector256 :: size: " + size + " result: " + res);
 						}
 						RecordResult(data, size, writer, "Vector256");
+					}
+					else
+					{
+      			writer.WriteLine("Vector256,,,,");
 					}
 
 					if (mode == "llvm")
@@ -247,20 +252,28 @@ namespace issues
 						for (int i = 0; i < iterations; i++)
 						{
 							watch.Restart();
-							var res = Vector512DotProd(pleft, pright, size);
+							double res = 0.0;
+							for (int j = 0; j < Samples; j++)
+								res = Vector512DotProd(pleft, pright, size);
 							watch.Stop();
-							if (i > 0)
-								data[i-1] = ElapsedMicroSeconds(watch);
+							if (i >= Discard)
+								data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 							if (i + 1 == iterations)
 								Console.WriteLine("Vector512 :: size: " + size + " result: " + res);
 						}
 						RecordResult(data, size, writer, "Vector512");
 					}
+					else
+					{
+      			writer.WriteLine("Vector512,,,,");
+					}
+
+					writer.WriteLine("MKL_sdot,,,,");
 				}
 			}
 		}
 
-    public static void RunBench(string mode)
+    public static void RunBench(string mode, int iters)
     {
 			if (Stopwatch.IsHighResolution)
 			{
@@ -282,26 +295,19 @@ namespace issues
       writer.WriteLine("name,size,mean,stddev,error");
       foreach (int size in Sizes)
       {
-        RunBenchSize(mode, size, writer, 2);
+        RunBenchSize(mode, size, writer, 1 + Discard);
       }
-      writer.Close();
-
-      writer = new StreamWriter("cold.csv");
-      writer.WriteLine("name,size,mean,stddev,error");
-
-      foreach (int size in Sizes)
-      {
-        RunBenchSize(mode, size, writer, Iterations);
-      }
-
       writer.Close();
 
       writer = new StreamWriter("results.csv");
-      writer.WriteLine("name,size,mean,stddev,error");
+      writer.WriteLine("name,size,mean (us),stddev,error");
+
+			int totalIters = iters + Discard;
+
 
       foreach (int size in Sizes)
       {
-        RunBenchSize(mode, size, writer, Iterations);
+        RunBenchSize(mode, size, writer, totalIters);
       }
 
       writer.Close();
