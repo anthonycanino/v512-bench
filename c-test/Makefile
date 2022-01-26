@@ -1,10 +1,17 @@
-all: main mainasm
+all: dot dotasm matmul matmulasm
 
-main: main.cpp
-	clang++-10 -I/home/acanino/intel/oneapi/mkl/latest/include/ -L/home/acanino/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt -O3 -march=native main.cpp -o main
+dot: dot.cpp
+	clang++-10 -I/home/acanino/intel/oneapi/mkl/latest/include/ -L/home/acanino/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt -O3 -march=native dot.cpp -o dot
 
-mainasm: main.cpp
-	clang++-10 -I/home/acanino/intel/oneapi/mkl/latest/include/ -O3 -march=native -c -S main.cpp -o main.s
+dotasm: dot.cpp
+	clang++-10 -I/home/acanino/intel/oneapi/mkl/latest/include/ -O3 -march=native -c -S dot.cpp -o dot.s
+
+matmul: matmul.cpp
+	clang++-10 -O3 -march=native matmul.cpp -o matmul
+
+matmulasm: matmul.cpp
+	clang++-10 -O3 -march=native -c -S matmul.cpp -o matmul.s
+
 
 clean:
-	rm main.s main
+	rm dot.s dot
