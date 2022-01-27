@@ -7,10 +7,13 @@
 
 #include <immintrin.h>
 
-int sizes[] = { 32, 64, 128, 256 } ;
+#include "mkl.h"
 
-#define NDISCARD 10
-#define SAMPLES 100
+int sizes[] = { 512, 1024 } ;
+//int sizes[] = { 16 };
+
+#define NDISCARD 	1
+#define SAMPLES 	10
 
 double stddev(double *num, int size) {
 	double sum = 0.0;
@@ -127,6 +130,24 @@ void run_vector_256_matmul(matrix_t *a, matrix_t *b, matrix_t *c) {
   }
 }
 
+void run_vector_512_matmul(matrix_t *a, matrix_t *b, matrix_t *c) {
+  assert(a->M == c->M && b->N == c->N && a->N == b->M);
+  for (int i = 0; i < c->M; i++) {
+    for (int k = 0; k < a->N; k++) {
+      __m512 sv = _mm512_set1_ps(MAT(a,i,k));
+      for (int j = 0; j < c->N; j += 16) {
+        __m512 cv = _mm512_loadu_ps(&MAT(c,i,j));
+        __m512 bv = _mm512_loadu_ps(&MAT(b,i,j));
+        __m512 tv = _mm512_mul_ps(bv, sv);
+        cv = _mm512_add_ps(tv, cv);
+        _mm512_storeu_ps(&MAT(c,i,j), cv);
+      }
+    }
+  }
+}
+
+
+
 /*
 float run_vector_512_reduce(float *l, float *r, int size) {
   float res = 0.0;
@@ -148,7 +169,6 @@ void run_debug(int size, int iters) {
 
   bcast_matrix(&a, 2.0f);
   bcast_matrix(&b, 3.0f);
-  bcast_matrix(&c, 0.0f);
 
   printf("== matrix a (%d, %d)==\n", a.M, a.N);
   dump_matrix(&a);
@@ -156,6 +176,7 @@ void run_debug(int size, int iters) {
   printf("== matrix b (%d, %d)==\n", b.M, b.N);
   dump_matrix(&b);
 
+  bcast_matrix(&c, 0.0f);
   run_no_vector_matmul(&a, &b, &c);
 
   printf("== (no vector) matrix c (%d, %d)==\n", c.M, c.N);
@@ -171,6 +192,18 @@ void run_debug(int size, int iters) {
   run_vector_256_matmul(&a, &b, &c);
 
   printf("== (vector 256) matrix c (%d, %d)==\n", c.M, c.N);
+  dump_matrix(&c);
+
+  bcast_matrix(&c, 0.0f);
+  run_vector_512_matmul(&a, &b, &c);
+
+  printf("== (vector 512) matrix c (%d, %d)==\n", c.M, c.N);
+  dump_matrix(&c);
+
+	bcast_matrix(&c, 0.0f);
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, a.M, b.N, a.N, 1, a.val, a.M, b.val, b.M, 0.0, c.val, c.M);
+
+  printf("== (MKL_sgemm) matrix c (%d, %d)==\n", c.M, c.N);
   dump_matrix(&c);
 
   release_matrix(&a);
@@ -196,7 +229,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_no_vector_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -209,7 +242,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_vector_128_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -222,12 +255,39 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_vector_256_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
   }
   record_result("Vector256", size, data, iters-NDISCARD, f);
+
+	bcast_matrix(&c, 0.0f);
+  for (int i = 0; i < iters; i++) {
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			run_vector_512_matmul(&a, &b, &c);
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    if (i >= NDISCARD) {
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
+		}
+  }
+  record_result("Vector512", size, data, iters-NDISCARD, f);
+
+
+	bcast_matrix(&c, 0.0f);
+  for (int i = 0; i < iters; i++) {
+    auto begin = std::chrono::steady_clock::now();
+		for (int i = 0; i < SAMPLES; i++)
+			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, a.M, b.N, a.N, 1, a.val, a.M, b.val, b.M, 0.0, c.val, c.M);
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    if (i >= NDISCARD) {
+      data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
+		}
+  }
+  record_result("MKL_sgemm", size, data, iters-NDISCARD, f);
 
 
   release_matrix(&a);
@@ -259,7 +319,7 @@ int main(int argc, char **argv) {
     perror("fopen");
     return 1;
   }
-  fprintf(f, "name,size,mean (us),stddev\n");
+  fprintf(f, "name,size,mean (ms),stddev\n");
 
   for (int i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++) {
     run_bench(sizes[i], iters, f);

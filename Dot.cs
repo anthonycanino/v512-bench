@@ -15,7 +15,7 @@ using System.Linq;
 
 namespace issues
 {
-  class Micro
+  class Dot
   {
     // 512x512
     public static int[] Sizes = new int[] 

@@ -16,18 +16,33 @@ namespace issues
   {
     public static void Main(string[] args)
     {
-      string mode = args[0];
-      string type = args[1];
-      int iters = Int32.Parse(args[2]);
+      string micro = args[0];
+      string mode = args[1];
+      string type = args[2];
+      int iters = Int32.Parse(args[3]);
 
-      if (mode == "diag")
-      {
-        Micro.RunDiag(type);
-      }
-      else
-      {
-        Micro.RunBench(type, iters);
-      }
+			if (micro == "dot")
+			{
+				if (mode == "diag")
+				{
+					Dot.RunDiag(type);
+				}
+				else
+				{
+					Dot.RunBench(type, iters);
+				}
+			}
+			else if (micro == "matmul")
+			{
+				if (mode == "diag")
+				{
+					Matmul.RunDiag(type);
+				}
+				else
+				{
+					Matmul.RunBench(type, iters);
+				}
+			}
 
     }
   }

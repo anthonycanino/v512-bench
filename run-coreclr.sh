@@ -7,5 +7,6 @@ if [[ -e out/coreclr ]]; then
   mkdir -p out/coreclr
 fi
 
-/home/acanino/Projects/dotnet/runtime/artifacts/bin/coreclr/Linux.x64.Release/corerun bin/Release/net7.0/linux-x64/publish/v512-bench.dll run coreclr  10
+/home/acanino/Projects/dotnet/runtime/artifacts/bin/coreclr/Linux.x64.Release/corerun bin/Release/net7.0/linux-x64/publish/v512-bench.dll matmul run coreclr 10
+
 mv *.csv out/coreclr/
