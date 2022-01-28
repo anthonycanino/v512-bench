@@ -4,16 +4,16 @@
 #include <cmath>
 #include <string>
 #include <assert.h>
+#include <locale.h>
 
 #include <immintrin.h>
 
 #include "mkl.h"
 
-int sizes[] = { 512, 1024 } ;
-//int sizes[] = { 16 };
+int sizes[] = { 128, 256, 512 } ;
 
-#define NDISCARD 	1
-#define SAMPLES 	10
+#define NDISCARD 	3
+#define SAMPLES 	5
 
 double stddev(double *num, int size) {
 	double sum = 0.0;
@@ -43,7 +43,7 @@ void record_result(const std::string& name, int size, double* data, int iters, F
 
 	double dev = stddev(data, iters);
 
-  fprintf(f, "%s,%d,%lf,%lf\n", name.c_str(), size, mean, dev);
+  fprintf(f, "%s|%d|%'.1lf|%'.1lf\n", name.c_str(), size, mean, dev);
 }
 
 typedef struct {
@@ -229,7 +229,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_no_vector_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -242,7 +242,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_vector_128_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -255,7 +255,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_vector_256_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -268,7 +268,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			run_vector_512_matmul(&a, &b, &c);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -282,7 +282,7 @@ void run_bench(int size, int iters, FILE *f) {
 		for (int i = 0; i < SAMPLES; i++)
 			cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, a.M, b.N, a.N, 1, a.val, a.M, b.val, b.M, 0.0, c.val, c.M);
     auto end = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     if (i >= NDISCARD) {
       data[i-NDISCARD] = (double) elapsed.count() / (double) SAMPLES;
 		}
@@ -302,6 +302,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+	setlocale(LC_NUMERIC, "");
+
   //run_debug(sizes[0], 1);
 
   int iters = strtod(argv[1], NULL) + NDISCARD;
@@ -319,7 +321,7 @@ int main(int argc, char **argv) {
     perror("fopen");
     return 1;
   }
-  fprintf(f, "name,size,mean (ms),stddev\n");
+  fprintf(f, "name|size|mean (us)|stddev\n");
 
   for (int i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++) {
     run_bench(sizes[i], iters, f);

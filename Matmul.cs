@@ -19,16 +19,16 @@ namespace issues
   {
     public static int[] Sizes = new int[] 
     {
-      256, 512, 1024,
+      128, 256, 512
     };
 
-		public static int Discard = 10;
-		public static int Samples = 1;
+		public static int Discard = 3;
+		public static int Samples = 5;
 
-    public static double ElapsedMilliSeconds(Stopwatch watch)
+    public static double ElapsedMicroSeconds(Stopwatch watch)
     {
       double ticks = watch.ElapsedTicks;
-			return (double) (1000L) * ((double) ticks  / (double) Stopwatch.Frequency);
+			return (double) (1000L * 1000L) * ((double) ticks  / (double) Stopwatch.Frequency);
     }
 
     [MethodImplAttribute(MethodImplOptions.NoInlining)]
@@ -189,7 +189,10 @@ namespace issues
       double mean = data.Average();
       double stddev = standardDeviation(data);
 			double error = stddev / Math.Sqrt((double)data.Length);
-      writer.WriteLine($"{tag},{size},{mean},{stddev},{error}");
+			string meanstr = string.Format("{0:#,0.0}", mean);
+			string stddevstr = string.Format("{0:#,0.0}", stddev);
+			string errorstr = string.Format("{0:#,0.0}", error);
+      writer.WriteLine($"{tag}|{size}|{meanstr}|{stddevstr}|{errorstr}");
     }
 
     public static void RunBenchSize(string mode, int size, StreamWriter writer, int iterations)
@@ -227,7 +230,7 @@ namespace issues
 							NoVectorMatmul(pa, pb, pc, size);
 						watch.Stop();
 						if (i >= Discard)
-							data[i-Discard] = (double) watch.ElapsedMilliseconds / (double) Samples;
+							data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 					}
 					RecordResult(data, size, writer, "NoVector");
 
@@ -242,7 +245,7 @@ namespace issues
 							Vector128Matmul(pa, pb, pc, size);
 						watch.Stop();
 						if (i >= Discard)
-							data[i-Discard] = (double) watch.ElapsedMilliseconds / (double) Samples;
+							data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 					}
 					RecordResult(data, size, writer, "Vector128");
 
@@ -260,13 +263,13 @@ namespace issues
 								Vector256Matmul(pa, pb, pc, size);
 							watch.Stop();
 							if (i >= Discard)
-								data[i-Discard] = (double) watch.ElapsedMilliseconds / (double) Samples;
+								data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 						}
 						RecordResult(data, size, writer, "Vector256");
 					}
 					else
 					{
-      			writer.WriteLine("Vector256,,,,");
+      			writer.WriteLine("Vector256||||");
 					}
 
 					if (mode == "llvm")
@@ -279,16 +282,16 @@ namespace issues
 								Vector512Matmul(pa, pb, pc, size);
 							watch.Stop();
 							if (i >= Discard)
-								data[i-Discard] = (double) watch.ElapsedMilliseconds / (double) Samples;
+								data[i-Discard] = ElapsedMicroSeconds(watch) / (double) Samples;
 						}
 						RecordResult(data, size, writer, "Vector512");
 					}
 					else
 					{
-      			writer.WriteLine("Vector512,,,,");
+      			writer.WriteLine("Vector512||||");
 					}
 
-					writer.WriteLine("MKL_sdot,,,,");
+					writer.WriteLine("MKL_sdot||||");
 				}
 			}
 		}
@@ -296,7 +299,7 @@ namespace issues
     public static void RunBench(string mode, int iters)
     {
       StreamWriter writer = new StreamWriter("pre.csv");
-      writer.WriteLine("name,size,mean,stddev,error");
+      writer.WriteLine("name|size|mean|stddev|error");
       foreach (int size in Sizes)
       {
         RunBenchSize(mode, size, writer, 1 + Discard);
@@ -304,7 +307,7 @@ namespace issues
       writer.Close();
 
       writer = new StreamWriter("results.csv");
-      writer.WriteLine("name,size,mean (ms),stddev,error");
+      writer.WriteLine("name|size|mean (us)|stddev|error");
 
 			int totalIters = iters + Discard;
 
